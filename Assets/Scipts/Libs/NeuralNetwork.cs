@@ -14,14 +14,14 @@ public class NeuralNetwork
 
     public float learning_rate = 0.1f;
 
-    public NeuralNetwork(int input_layer_size, int hidden_layer_size, int output_layer_size, int num_hidden_layers, Matrix input_vector){
+    public NeuralNetwork(int input_layer_size, int hidden_layer_size, int output_layer_size, int num_hidden_layers){
         this.input_layer_size = input_layer_size;
         this.hidden_layer_size = hidden_layer_size;
         this.output_layer_size = output_layer_size;
         this.num_hidden_layers = num_hidden_layers;
 
 
-        setupNetwork(input_layer_size, hidden_layer_size, output_layer_size, num_hidden_layers, input_vector);
+        setupNetwork(input_layer_size, hidden_layer_size, output_layer_size, num_hidden_layers);
     }
 
     public class Layer{
@@ -41,7 +41,7 @@ public class NeuralNetwork
 
     }
 
-    private void setupNetwork(int input_layer_size, int hidden_layer_size, int output_layer_size, int num_hidden_layers, Matrix input_vector){
+    public void setupNetwork(int input_layer_size, int hidden_layer_size, int output_layer_size, int num_hidden_layers){
         layers = new List<Layer>();
         for (int i = 0; i < num_hidden_layers + 2; i++){
             // Matrix weights;
@@ -50,7 +50,7 @@ public class NeuralNetwork
             Matrix values;
 
             if (i == 0){ //Input layers
-                layers.Add(new Layer(input_layer_size, i, null, new Matrix(0, 0), input_vector));
+                layers.Add(new Layer(input_layer_size, i, null, new Matrix(0, 0), new Matrix(input_layer_size, 1)));
             }
             else if (i == (num_hidden_layers + 2) - 1){ //Output layer
                 for(int j = 0; j < output_layer_size; j++){
@@ -64,7 +64,7 @@ public class NeuralNetwork
                 biases.fillRandom(-1.0f, 1.0f);
                 values = new Matrix(output_layer_size, 1);
                 values.fillZeros();
-                layers.Add(new Layer(input_layer_size, i, weights, biases, values));
+                layers.Add(new Layer(output_layer_size, i, weights, biases, values));
             }
             else { //Hidden layers
 
@@ -93,6 +93,10 @@ public class NeuralNetwork
         tmp = tmp + biases;
         // Matrix mat = (weights.vectorInnerProd(values)) + biases;
         // return mat.sigmoid();
+        if (biases.vectorSize() == 2){
+            // tmp.printMatrix("OUTPUTS W/O SIGMOID");
+            return tmp;
+        }
         return tmp.sigmoid();
     }
 
@@ -132,14 +136,42 @@ public class NeuralNetwork
 
     public void mutate(NeuralNetwork parent1, NeuralNetwork parent2){
         for(int i = 1; i < layers.Count; i++){ //Loop through layers
-            for (int j = 0; j < layers[i].weights.Count / 2; j++){ //Loop through first half of weights of layer
-                layers[i].weights[j] = parent1.layers[i].weights[j];
+            List<int> usedIndex = new List<int>();
+            while (usedIndex.Count < layers[i].weights.Count/2){
+                int random = Random.Range(0, layers[i].weights.Count);
+                if (usedIndex.Contains(random)){ continue; }
+                usedIndex.Add(random);
+                layers[i].weights[random] = parent1.layers[i].weights[random];
+                layers[i].biases.insert(parent1.layers[i].biases.get(random), random);
             }
 
-            for (int k = layers[i].weights.Count / 2; k < layers[i].weights.Count; k++){ //Loop through first half of weights of layer
-                layers[i].weights[k] = parent1.layers[i].weights[k];
+            while (usedIndex.Count < layers[i].weights.Count){
+                int random = Random.Range(0, layers[i].weights.Count);
+                if (usedIndex.Contains(random)){ continue; }
+                usedIndex.Add(random);
+                layers[i].weights[random] = parent2.layers[i].weights[random];
+                layers[i].biases.insert(parent2.layers[i].biases.get(random), random);
             }
         }
+
+        // parent1.layers[1].biases.printMatrix("Parent 1: ");
+        // parent2.layers[1].biases.printMatrix("Parent 2: ");
+        // layers[1].biases.printMatrix("CHILD: ");
+
+
+        // for(int i = 1; i < layers.Count; i++){ //Loop through layers
+        //     for (int j = 0; j < layers[i].weights.Count / 2; j++){ //Loop through first half of weights of layer
+        //         layers[i].weights[j] = parent1.layers[i].weights[j];
+        //         layers[i].biases.insert(parent1.layers[i].biases.get(j), j);
+        //     }
+
+        //     for (int k = layers[i].weights.Count / 2; k < layers[i].weights.Count; k++){ //Loop through first half of weights of layer
+        //         layers[i].weights[k] = parent2.layers[i].weights[k];
+        //         layers[i].biases.insert(parent2.layers[i].biases.get(k), k);
+        //     }
+        // }
+
+        // layers[1].biases.printMatrix("CHILD");
     }
 
     public Matrix train(Matrix input){
@@ -147,5 +179,9 @@ public class NeuralNetwork
         Matrix outputs = forward_propagate();
 
         return outputs;
+    }
+
+    public void printNetwork(){
+
     }
 }

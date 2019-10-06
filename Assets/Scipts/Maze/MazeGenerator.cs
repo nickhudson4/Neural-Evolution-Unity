@@ -130,10 +130,12 @@ public class MazeGenerator : MonoBehaviour
             Vector3 dir;
             if (i == orderedNodes.Count - 1){
                 dir = new Vector3(1, 0, 0);
+                tmp1.nextNode = tmp1;
             }
             else {
                 Cell next = orderedNodes[i+1];
                 dir = (next.pos - tmp1.pos);
+                tmp1.nextNode = next;
             }
             tmp1.nextNodeDir = dir;
             orderedNodes[i] = tmp1;
@@ -196,6 +198,7 @@ public class Cell{
     public Vector3 pos;
     public GameObject block;
     public Vector3 nextNodeDir;
+    public Cell nextNode;
 
 
     public Cell connected_to;

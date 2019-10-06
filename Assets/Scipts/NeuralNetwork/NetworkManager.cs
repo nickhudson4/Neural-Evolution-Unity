@@ -7,6 +7,7 @@ public class NetworkManager : MonoBehaviour
     public GameObject playerPrefab;
     public int populationSize;
     public GameObject pressurePlatePrefab;
+    public float mutationRate = 0.4f;
     bool isInitialized = false;
 
     // Matrix input_matrix;
@@ -16,6 +17,9 @@ public class NetworkManager : MonoBehaviour
 
     List<Player> players;
     public int isDeadCount = 0;
+    private float genTime = 0;
+    private float maxGenTime = 20.0f;
+    private int genCounter = 0;
 
     public void initialize(List<Cell> orderedNodes, Vector3 startPos){
         // this.input_matrix = input_matrix;
@@ -35,30 +39,12 @@ public class NetworkManager : MonoBehaviour
         if (isDeadCount == players.Count){
             calculateFitness();
             List<Player> parents = selectParents(players);
-            for(int i = 0; i < players.Count; i++){
-                if (players[i].player_GO == parents[0].player_GO || players[i].player_GO == parents[1].player_GO){
-                    Player tmp2 = players[i];
-                    tmp2.isDead = false;
-                    tmp2.player_GO.transform.position = startPos;
-                    tmp2.controller.rb.isKinematic = false;
-                    players[i] = tmp2;
-                    continue;
-
-                }
-                //TODO: TEST THIS
-                Player tmp = players[i];
-                tmp.network.mutate(parents[0].network, parents[1].network);
-                tmp.isDead = false;
-                tmp.player_GO.transform.position = startPos;
-                tmp.controller.rb.isKinematic = false;
-                players[i] = tmp;
-
-                isDeadCount = 0;
-            }
+            mutate(parents);
+            genTime = 0;
+            genCounter++;
+            Debug.Log("Generation: " + genCounter);
         }
 
-        for(int i = 0; i < players.Count; i++){
-        }
     }
 
     private void run(){
@@ -67,10 +53,19 @@ public class NetworkManager : MonoBehaviour
             if (p.isDead){ continue; }
             Matrix input = createInputMatrix(orderedNodes, p);
             Matrix outputs = p.network.train(input);
-            // input.printMatrix();
-            p.controller.move(outputs.get(0) - outputs.get(1), outputs.get(2) - outputs.get(3));
-            // outputs.printMatrix();
+            if (isDeadCount > 80){
+                // input.printMatrix("INPUTS");
+                // outputs.printMatrix("OUTPUTS");
+            }
+
+            // input.printMatrix("INPUTS");
+            // outputs.printMatrix("OUTPUTS");
+            // p.controller.move(outputs.get(0) - outputs.get(1), outputs.get(2) - outputs.get(3));
+            // p.controller.move(new Vector2(outputs.get(0), outputs.get(1)).normalized);
             // p.controller.moveOnAxis(p.network.getPrediction(outputs));
+            Vector3 forward = vector2_to_vector3(new Vector2(outputs.get(0), outputs.get(1)), "y").normalized;
+            // Debug.Log("FORWARD: " + forward);
+            players[i].controller.moveForward(forward);
 
             if (p.player_GO.transform.position.y < 0){
                 // Debug.Log("HERE");
@@ -83,40 +78,102 @@ public class NetworkManager : MonoBehaviour
 
 
         }
+        if (genTime >= maxGenTime){
+            Debug.Log("TIME OVERAGE");
+            for (int i = 0; i < players.Count; i++){
+                if (players[i].isDead){ continue; }
+
+                Player tmp = players[i];
+                tmp.isDead = true;
+                isDeadCount++;
+                tmp.controller.rb.isKinematic = true;
+                tmp.score = 0;
+                players[i] = tmp;
+            }
+        }
+
+        genTime += Time.deltaTime;
     }
 
     private void mutate(List<Player> parents){
-        NeuralNetwork network = new NeuralNetwork(parents[0].network.input_layer_size, parents[0].network.output_layer_size, parents[0].network.hidden_layer_size, parents[0].network.num_hidden_layers, new Matrix(0, 0));
+        int mut_count = 0;
+        for(int i = 0; i < players.Count; i++){
+            if (players[i].player_GO == parents[0].player_GO || players[i].player_GO == parents[1].player_GO){
+                Player tmp2 = players[i];
+                tmp2.isDead = false;
+                tmp2.controller.resetPlayer(startPos);
+                players[i] = tmp2;
+                continue;
 
+            }
+            //TODO: TEST THIS
+            Player tmp = players[i];
+            float mutateChance = Random.Range(0.0f, 1.0f);
+            if (mutateChance < mutationRate){ //Spawn with parents genes
+                tmp.network.mutate(parents[0].network, parents[1].network);
+                mut_count++;
+            }
+            else { //Spawn brand new player
+                // tmp.network.mutate(parents[0].network, parents[1].network);
+                tmp.network.setupNetwork(tmp.network.input_layer_size, tmp.network.hidden_layer_size, tmp.network.output_layer_size, tmp.network.num_hidden_layers);
+
+            }
+            tmp.isDead = false;
+            tmp.controller.resetPlayer(startPos);
+            players[i] = tmp;
+
+            isDeadCount = 0;
+        }
+        // Debug.Log("NUM MUTATIONS: " + mut_count);
 
     }
 
     private List<Player> selectParents(List<Player> players){
-            // float max = -1.0f;
-            // Player best = players[0];
-            // foreach(Player p in players){
-            //     if (p.fitness > max){
-            //         max = p.fitness;
-            //         best = p;
-            //     }
-            // }
-            // Debug.Log("Best Fitness: " + best.fitness, best.player_GO);
 
             List<Player> selected = new List<Player>();
-            for (int i = 0; i < 2; i++){
+            while(selected.Count < 2){
                 float rand = Random.Range(0.0f, 1.0f);
-
                 foreach (Player p in players){
                     rand = rand - p.fitness;
                     if (rand <= p.fitness){
-                        selected.Add(p);
+                        if (selected.Count == 0){
+                            selected.Add(p);
+                        }
+                        else {
+                            if (selected[0].player_GO != p.player_GO){
+                                selected.Add(p);
+                            }
+                        }
                         break;
                     }
                 }
             }
 
+            //TODO: FINISH THIS
+            int wheel_size = 100;
+            List<Player> prob_wheel = new List<Player>();
+            foreach(Player p in players){
+                int num_entrys = (int)(p.fitness * wheel_size);
+
+                Debug.Log("fitness: " + p.fitness);
+                Debug.Log("wheelsize: " + wheel_size);
+                Debug.Log("Num entrys: " + num_entrys);
+                for (int i = 0; i < num_entrys; i++){
+                    prob_wheel.Add(p);
+                }
+
+            }
+            Debug.Log("WHEEL SIZE: " + prob_wheel.Count);
+            int rand_pick_1 = Random.Range(0, prob_wheel.Count);
+            int rand_pick_2 = Random.Range(0, prob_wheel.Count);
+
+            selected.Add(prob_wheel[rand_pick_1]);
+            selected.Add(prob_wheel[rand_pick_2]);
+
             foreach(Player p in selected){
-                Debug.Log("selected player with fitness: " + p.fitness, p.player_GO);
+                // Debug.Log("selected player with fitness: " + p.fitness, p.player_GO);
+                // p.network.layers[1].biases.printMatrix("PARENT");
+
             }
 
             return selected;
@@ -171,16 +228,35 @@ public class NetworkManager : MonoBehaviour
 
     public Matrix createInputMatrix(List<Cell> cells, Player player){
         // Matrix mat = new Matrix((cells.Count * 3) + 4, 1);
-        Matrix mat = new Matrix(4, 1);
-        float distToPivot = Vector3.Distance(player.player_GO.transform.position, player.nextPivot.pos);
-        Vector2 pivotDir = vector2_to_vector3((player.nextPivot.pos - player.player_GO.transform.position), "y");
-        Vector2 nextPivotDir = vector2_to_vector3(player.nextPivot.nextNodeDir, "y");
+        Matrix mat = new Matrix(8, 1);
+        mat.insert(player.controller.rb.velocity.x, 0);
+        mat.insert(player.controller.rb.velocity.z, 1);
 
-        mat.insert(pivotDir.x, 0);
-        mat.insert(pivotDir.y, 1);
+        mat.insert(player.player_GO.transform.position.x, 2);
+        mat.insert(player.player_GO.transform.position.z, 3);
 
-        mat.insert(nextPivotDir.x, 2);
-        mat.insert(nextPivotDir.y, 3);
+        mat.insert(player.nextPivot.pos.x, 4);
+        mat.insert(player.nextPivot.pos.z, 5);
+
+        mat.insert(player.nextPivot.nextNode.pos.x, 6);
+        mat.insert(player.nextPivot.nextNode.pos.z, 7);
+
+
+
+        
+        //!OLD
+        // float distToPivot = Vector3.Distance(player.player_GO.transform.position, player.nextPivot.pos);
+        // Vector2 pivotDir = vector2_to_vector3((player.nextPivot.pos - player.player_GO.transform.position), "y");
+        // Vector2 nextPivotDir = vector2_to_vector3(player.nextPivot.nextNodeDir, "y");
+
+        // mat.insert(pivotDir.x, 0);
+        // mat.insert(pivotDir.y, 1);
+
+        // mat.insert(nextPivotDir.x, 2);
+        // mat.insert(nextPivotDir.y, 3);
+
+
+        //!OLD
         //Insert distance from next pivot
         // mat.insert(distToPivot, 3)
 
@@ -235,7 +311,7 @@ public class NetworkManager : MonoBehaviour
             //TODO: NO NEED TO PASS INPUT YET
             Player newPlayer = new Player(player, orderedNodes[1]);
             Matrix input = createInputMatrix(orderedNodes, newPlayer);
-            NeuralNetwork myNetwork = new NeuralNetwork(input.vectorSize(), 8, 4, 1, input);
+            NeuralNetwork myNetwork = new NeuralNetwork(8, 16, 2, 1);
             newPlayer.network = myNetwork;
             tmp.Add(newPlayer);
         }
@@ -328,7 +404,7 @@ public class NetworkManager : MonoBehaviour
         isDeadCount = 0;
     }
 
-    public Vector2 vector2_to_vector3(Vector3 orig, string dropAxis){
+    public Vector2 vector3_to_vector2(Vector3 orig, string dropAxis){
         if (dropAxis == "y"){
             return new Vector2(orig.x, orig.z);
         }
@@ -340,12 +416,24 @@ public class NetworkManager : MonoBehaviour
         }
     }
 
+    public Vector3 vector2_to_vector3(Vector2 orig, string dropAxis){
+        if (dropAxis == "y"){
+            return new Vector3(orig.x, 0, orig.y);
+        }
+        if (dropAxis== "x"){
+            return new Vector3(0, orig.x, orig.y);
+        }
+        else {
+            return new Vector3(orig.x, orig.y, 0);
+        }
+    }
+
     public struct Player{
         public Player(GameObject player_GO, Cell nextPivot){
             this.player_GO = player_GO;
             this.nextPivot = nextPivot;
             this.pivotIndex = 0;
-            this.network = new NeuralNetwork(0, 0, 0, 0, new Matrix(0, 0));
+            this.network = new NeuralNetwork(0, 0, 0, 0);
             this.controller = player_GO.GetComponent<PlayerController>();
 
             this.isDead = false;

@@ -8,17 +8,13 @@ public class PlayerController : MonoBehaviour
 
     //Movement Vars
     public float speed = 1;
-    void Start(){
+    void Awake(){
        rb = GetComponent<Rigidbody>();
     }
 
     void Update(){
         handleMovement();
-        float horiz = Input.GetAxis("Horizontal");
-        float vert = Input.GetAxis("Vertical");
-
-        // Debug.Log("Horizontal: " + horiz);
-        // Debug.Log("Vertical: " + vert);
+        // Debug.Log("ROTATION: " + transform.eulerAngles);
     }
 
     private void handleMovement(){
@@ -43,8 +39,13 @@ public class PlayerController : MonoBehaviour
             moveOneStep(-Vector3.forward);
     }
 
-    public void move(float horiz, float vert){
-        Vector3 dir = new Vector3(horiz, 0, vert).normalized;
+    public void moveForward(Vector3 forward){
+        transform.forward = forward;
+        moveOneStep(transform.forward);
+    }
+
+    public void move(Vector2 axis){
+        Vector3 dir = new Vector3(axis.x, 0, axis.y).normalized;
         moveOneStep(dir);
     }
 
@@ -63,5 +64,11 @@ public class PlayerController : MonoBehaviour
         else {
             return new Vector2(orig.x, orig.y);
         }
+    }
+
+    public void resetPlayer(Vector3 pos){
+
+        transform.position = pos;
+        rb.isKinematic = false;
     }
 }

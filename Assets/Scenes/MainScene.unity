@@ -311,10 +311,10 @@ RectTransform:
   m_Father: {fileID: 653867048}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 0.5}
-  m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 465.4, y: 183.93}
-  m_SizeDelta: {x: 82.9, y: 25.5}
+  m_AnchorMin: {x: 1, y: 1}
+  m_AnchorMax: {x: 1, y: 1}
+  m_AnchoredPosition: {x: -70, y: -44}
+  m_SizeDelta: {x: 82.900024, y: 25.5}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &184279096
 MonoBehaviour:
@@ -782,6 +782,7 @@ MonoBehaviour:
   populationSize: 100
   pressurePlatePrefab: {fileID: 2140386798422778744, guid: 345e1dc6c8d0ce040ba2de80ff27bcce,
     type: 3}
+  mutationRate: 0.5
   isDeadCount: 0
 --- !u!4 &1789049027
 Transform:
